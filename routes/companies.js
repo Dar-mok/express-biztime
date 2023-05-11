@@ -8,13 +8,12 @@ const router = new express.Router();
 let  db  = require("../db");
 
 
-//TODO: add ORDER BY in sql queries
-
-/**return list of companies */
+/** Returns list of companies, like {companies: [{code, name}, ...]} */
 router.get("/", async function (req, res) {
   const results = await db.query(
     `SELECT code, name
-         FROM companies`
+         FROM companies
+         ORDER BY code`
          );
   return res.json({
     companies: results.rows
@@ -22,7 +21,9 @@ router.get("/", async function (req, res) {
 });
 
 
-/** return single company */
+/** Return obj of company: {company: {code, name, description}}
+ * If the company given cannot be found, return a 404 status response.
+ */
 router.get("/:code", async function (req, res) {
   const code = req.params.code;
   const results = await db.query(
@@ -36,7 +37,9 @@ router.get("/:code", async function (req, res) {
 });
 
 
-/**add item to array and show added item */
+/** Adds a company. Needs to be given JSON like: {code, name, description}.
+ * Returns obj of new company: {company: {code, name, description}}
+ */
 router.post("/", async function (req, res) {
   if (req.body === undefined) throw new BadRequestError();
   const results = await db.query(
@@ -50,7 +53,10 @@ router.post("/", async function (req, res) {
 });
 
 
-/** update and show updated company */
+/**Edit existing company. Should return 404 if company cannot be found.
+ * Needs to be given JSON like: {name, description}
+ * Returns update company object: {company: {code, name, description}}
+ */
 router.put("/:code", async function (req, res) {
   if (req.body === undefined || "code" in req.body) {
     throw new BadRequestError("Not allowed");
@@ -70,11 +76,15 @@ router.put("/:code", async function (req, res) {
 });
 
 
-/** deletes company and returns a status of deleted */
+/** Deletes company. Should return 404 if company cannot be found.
+ * Returns {status: "deleted"}
+ */
 router.delete("/:code", async function (req, res) {
   const code = req.params.code;
-  const result = await db.query(`DELETE FROM companies
-                                  WHERE code = $1 RETURNING code`, [code]);
+  const result = await db.query(
+    `DELETE FROM companies
+      WHERE code = $1
+      RETURNING code`, [code]);
   const company = result.rows[0]
 
   if (!company) throw new NotFoundError(`No matching company: ${company}`);
