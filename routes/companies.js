@@ -3,7 +3,6 @@
 const express = require("express");
 const { NotFoundError, BadRequestError } = require("../expressError");
 
-
 const router = new express.Router();
 let  db  = require("../db");
 
@@ -29,7 +28,7 @@ router.get("/:code", async function (req, res) {
   const code = req.params.code;
 
   const cResult = await db.query(
-    `SELECT *
+    `SELECT code, name, description
       FROM companies
       WHERE code = $1`, [code]);
   const company = cResult.rows[0];
@@ -37,11 +36,12 @@ router.get("/:code", async function (req, res) {
   if (!company) throw new NotFoundError(`No matching company: ${code}`);
 
   const iResults = await db.query(
-    `SELECT *
+    `SELECT id
       FROM invoices
       WHERE comp_code = $1`, [code]);
+  let ids = iResults.rows.map(obj => obj.id)
 
-  company.invoices = iResults.rows;
+  company.invoices = ids;
 
   return res.json({ company });
 });

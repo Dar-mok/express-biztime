@@ -3,7 +3,6 @@
 const express = require("express");
 const { NotFoundError, BadRequestError } = require("../expressError");
 
-
 const router = new express.Router();
 let  db  = require("../db");
 
@@ -30,7 +29,7 @@ router.get("/:id", async function (req, res) {
   const id = req.params.id;
 
   const iResult = await db.query(
-    `SELECT *
+    `SELECT id, comp_code, amt, paid, add_date, paid_date
       FROM invoices
       WHERE id = $1`, [id]);
   const invoice = iResult.rows[0];
@@ -40,20 +39,14 @@ router.get("/:id", async function (req, res) {
   const comp_code = invoice.comp_code
 
   const cResult = await db.query(
-    //TODO: DON'T USE *
-    `SELECT *
+    `SELECT code, name, description
       FROM companies
       WHERE code = $1`, [comp_code]);
   const company = cResult.rows[0];
 
-  //TODO: can just delete object key
-  let desiredInvoiceAttributes = {};
-  for (const key in invoice){
-    if (key !== "comp_code"){
-      desiredInvoiceAttributes[key] = invoice[key]
-    }
-  }
-  return res.json({ invoice: {...desiredInvoiceAttributes, company }});
+  delete invoice.comp_code
+
+  return res.json({ invoice: {...invoice, company }});
 });
 
 
@@ -66,7 +59,7 @@ router.post("/", async function (req, res) {
   const result = await db.query(
     `INSERT INTO invoices (comp_code, amt)
       VALUES ($1, $2)
-      RETURNING *`,
+      RETURNING id, comp_code, amt, paid, add_date, paid_date`,
     [req.body.comp_code, req.body.amt]);
   const invoice = result.rows[0];
 
@@ -90,7 +83,7 @@ router.put("/:id", async function (req, res) {
     `UPDATE invoices
       SET amt=$1
       WHERE id = $2
-      RETURNING *`,
+      RETURNING id, comp_code, amt, paid, add_date, paid_date`,
     [amt, id]);
   const invoice = result.rows[0];
 
