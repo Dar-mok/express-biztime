@@ -12,8 +12,8 @@ let  db  = require("../db");
 router.get("/", async function (req, res) {
   const results = await db.query(
     `SELECT code, name
-         FROM companies
-         ORDER BY code`
+      FROM companies
+      ORDER BY code`
          );
   return res.json({
     companies: results.rows
@@ -21,18 +21,28 @@ router.get("/", async function (req, res) {
 });
 
 
-/** Return obj of company: {company: {code, name, description}}
+/** Return obj of company:
+ * {company: {code, name, description, invoices: [id, ...]}}
  * If the company given cannot be found, return a 404 status response.
  */
 router.get("/:code", async function (req, res) {
   const code = req.params.code;
-  const results = await db.query(
-    `SELECT code, name
-         FROM companies
-         WHERE code = $1`, [code]);
-  const company = results.rows[0];
+
+  const cResult = await db.query(
+    `SELECT *
+      FROM companies
+      WHERE code = $1`, [code]);
+  const company = cResult.rows[0];
 
   if (!company) throw new NotFoundError(`No matching company: ${code}`);
+
+  const iResults = await db.query(
+    `SELECT *
+      FROM invoices
+      WHERE comp_code = $1`, [code]);
+
+  company.invoices = iResults.rows;
+
   return res.json({ company });
 });
 
@@ -42,12 +52,13 @@ router.get("/:code", async function (req, res) {
  */
 router.post("/", async function (req, res) {
   if (req.body === undefined) throw new BadRequestError();
-  const results = await db.query(
+
+  const result = await db.query(
     `INSERT INTO companies (code, name, description)
-         VALUES ($1, $2, $3)
-         RETURNING code, name, description`,
+      VALUES ($1, $2, $3)
+      RETURNING code, name, description`,
     [req.body.code, req.body.name, req.body.description]);
-  const company = results.rows[0];
+  const company = result.rows[0];
 
   return res.status(201).json({ company });
 });
@@ -63,13 +74,14 @@ router.put("/:code", async function (req, res) {
   }
 
   const code = req.params.code;
-  const results = await db.query(
+
+  const result = await db.query(
     `UPDATE companies
-         SET name=$1, description=$2
-         WHERE code = $3
-         RETURNING code, name, description`,
+      SET name=$1, description=$2
+      WHERE code = $3
+      RETURNING code, name, description`,
     [req.body.name, req.body.description, code]);
-  const company = results.rows[0];
+  const company = result.rows[0];
 
   if (!company) throw new NotFoundError(`No matching company: ${code}`);
   return res.json({ company });
@@ -81,13 +93,15 @@ router.put("/:code", async function (req, res) {
  */
 router.delete("/:code", async function (req, res) {
   const code = req.params.code;
+
   const result = await db.query(
     `DELETE FROM companies
       WHERE code = $1
       RETURNING code`, [code]);
   const company = result.rows[0]
 
-  if (!company) throw new NotFoundError(`No matching company: ${company}`);
+  if (!company) throw new NotFoundError(`No matching company`);
+
   return res.json({ status: "deleted" });
 });
 
